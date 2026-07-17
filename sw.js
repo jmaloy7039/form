@@ -1,5 +1,5 @@
 /* Form — offline-first service worker */
-const CACHE = 'form-v2';
+const CACHE = 'form-r3';
 const ASSETS = [
   './',
   './index.html',

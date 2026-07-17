@@ -37,6 +37,7 @@ const defaultState = () => ({
   custom: [],
   templates: DEFAULT_TEMPLATES.map(t => ({ ...t, exerciseIds: [...t.exerciseIds] })),
   plans: [],           // [{id, date:'YYYY-MM-DD', name, exerciseIds}] — unlimited upcoming workouts
+  renames: {},         // {exerciseId: customDisplayName} for built-in library exercises
   workouts: [],        // {id, date, name, durationSec, entries:[{exId, sets:[{w,r,rpe}], note}]}
   active: null,        // {name, startedAt, cur, planId, exs:[{exId, sets, note, target}]}
   sugDismissed: null,
@@ -49,6 +50,7 @@ function normalizeState(s) {
     out.plans = (Array.isArray(s.plans) ? s.plans : []).concat([{ id: uid(), ...s.plan }]);
   }
   if (!Array.isArray(out.plans)) out.plans = [];
+  if (!out.renames || typeof out.renames !== 'object') out.renames = {};
   delete out.plan;
   out.version = 2;
   return out;
@@ -78,9 +80,12 @@ const ui = {
 };
 
 // ---------------------------------------------------------------- exercise helpers
-const allExercises = () => EXERCISES.concat(S.custom);
+// renames apply here so every list, chip, chart, and history entry shows her name for the lift
+const allExercises = () => EXERCISES.concat(S.custom)
+  .map(e => S.renames[e.id] ? { ...e, name: S.renames[e.id] } : e);
 const exById = (id) => allExercises().find(e => e.id === id) ||
   { id, name: '(deleted exercise)', eq: '', p: [], s: [] };
+const baseNameOf = (id) => { const b = EXERCISES.find(e => e.id === id); return b ? b.name : null; };
 const musName = (id) => (MUSCLES.find(m => m.id === id) || { name: id }).name;
 
 function lastSessionFor(exId) {
@@ -638,7 +643,7 @@ function renderSettings() {
       <button class="srow srow-btn" data-action="import"><span>Restore from backup</span><span class="chev">›</span></button>
     </div>
     <input type="file" id="import-file" accept=".json,application/json" style="display:none">
-    <div class="version">Form 1.1 · made with 💗 by your brother</div>`;
+    <div class="version">Form 1.2 · made with 💗 by your brother</div>`;
 }
 
 function renderTemplates() {
@@ -684,7 +689,22 @@ function renderPlanEdit() {
     </div>
     <button class="btn-ghost" data-action="add-exercise">+ Add exercise</button>
     <button class="btn-primary" data-action="plan-save">Save plan ✦</button>
-    <button class="btn-ghost" data-action="plan-save-template" ${d.exerciseIds.length ? '' : 'disabled style="opacity:.4"'}>Save as template</button>`;
+    <button class="btn-ghost" data-action="plan-save-template" ${d.exerciseIds.length ? '' : 'disabled style="opacity:.4"'}>Save as template</button>
+    ${S.templates.length ? `
+      <div class="seclab">OR START FROM A TEMPLATE</div>
+      <div class="qstart">
+        ${S.templates.map(t => `<button data-action="draft-template" data-id="${t.id}">${esc(t.name)}</button>`).join('')}
+      </div>` : ''}
+    ${S.workouts.length ? `
+      <div class="seclab">OR COPY A RECENT WORKOUT</div>
+      <div class="sgroup">
+        ${[...S.workouts].slice(-4).reverse().map(w => `
+          <button class="srow srow-btn" data-action="draft-copy" data-id="${w.id}">
+            <span>${esc(w.name)} <span style="color:var(--pink-text)">· ${esc(fmtDate(w.date))}</span>
+            <span class="hint">${w.entries.map(e => esc(exById(e.exId).name)).join(' · ') || 'no exercises'}</span></span>
+            <span class="chev">›</span>
+          </button>`).join('')}
+      </div>` : ''}`;
 }
 
 // ---------------------------------------------------------------- sheets
@@ -716,9 +736,13 @@ function pickerHTML() {
       ${MUSCLES.map(m => `<button class="${ui.pickMus === m.id ? 'sel' : ''}" data-action="pick-mus" data-m="${m.id}">${esc(m.name)}</button>`).join('')}
     </div>
     <div class="pickerlist">
-      ${list.slice(0, 40).map(ex => `<button class="pickrow" data-action="pick-ex" data-ex="${ex.id}">
-        <span class="nm">${esc(ex.name)}<small>${ex.p.map(m => esc(musName(m))).join(', ')} · ${esc(EQUIPMENT_NAMES[ex.eq] || ex.eq)}</small></span>
-        <span class="plus">+</span></button>`).join('')
+      ${list.slice(0, 40).map(ex => `<div class="pickrow">
+        <button class="pickmain" data-action="pick-ex" data-ex="${ex.id}">
+          <span class="nm">${esc(ex.name)}<small>${ex.p.map(m => esc(musName(m))).join(', ')} · ${esc(EQUIPMENT_NAMES[ex.eq] || ex.eq)}</small></span>
+          <span class="plus">+</span>
+        </button>
+        <button class="editnm" data-action="rename-ex" data-ex="${ex.id}" aria-label="Rename ${esc(ex.name)}">✎</button>
+      </div>`).join('')
       || '<div class="empty-note">No matches — create it below ✨</div>'}
     </div>
     <button class="btn-ghost" data-action="new-ex-form">+ New exercise</button>`;
@@ -730,6 +754,29 @@ function refreshPicker() {
   const inp = $('#pick-search', sheet);
   inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length);
   $('.pickerlist', sheet).scrollTop = pos;
+}
+
+function openRename(exId) {
+  ui.renameTarget = exId;
+  const cur = exById(exId).name;
+  const base = baseNameOf(exId);
+  openSheet(`
+    <div class="grabber"></div>
+    <h2>Rename exercise</h2>
+    ${base && base !== cur ? `<p class="sub">Library name: ${esc(base)}</p>` : ''}
+    <div class="field"><label>HER NAME FOR IT</label>
+      <input type="text" id="rename-name" maxlength="40" value="${esc(cur)}"></div>
+    <button class="btn-primary" data-action="rename-save">Save ✦</button>
+    ${base && base !== cur ? `<button class="btn-ghost" data-action="rename-reset">Reset to "${esc(base)}"</button>` : ''}`);
+  const inp = $('#rename-name'); inp.focus(); inp.select();
+}
+
+function applyRename(exId, name) {
+  const custom = S.custom.find(e => e.id === exId);
+  if (custom) custom.name = name;
+  else if (name === baseNameOf(exId)) delete S.renames[exId];
+  else S.renames[exId] = name;
+  save();
 }
 
 function openNewExForm() {
@@ -1038,6 +1085,23 @@ document.addEventListener('click', (ev) => {
       break;
     }
     case 'plan-remove': ui.planDraft.exerciseIds.splice(+btn.dataset.i, 1); render(); break;
+    case 'draft-template': {
+      const t = S.templates.find(x => x.id === btn.dataset.id);
+      if (!t) break;
+      ui.planDraft.exerciseIds = t.exerciseIds.filter(id => allExercises().some(e => e.id === id));
+      if (!ui.planDraft.id && (ui.planDraft.name === 'My Workout' || !ui.planDraft.name.trim())) ui.planDraft.name = t.name;
+      render(); toast(`Loaded "${t.name}" ✦`);
+      break;
+    }
+    case 'draft-copy': {
+      const w = S.workouts.find(x => x.id === btn.dataset.id);
+      if (!w) break;
+      ui.planDraft.exerciseIds = [...new Set(w.entries.map(e => e.exId))]
+        .filter(id => allExercises().some(e => e.id === id));
+      if (!ui.planDraft.id && (ui.planDraft.name === 'My Workout' || !ui.planDraft.name.trim())) ui.planDraft.name = w.name;
+      render(); toast(`Copied "${w.name}" from ${fmtDate(w.date)} ✦`);
+      break;
+    }
     case 'plan-save': {
       const name = (ui.planDraft.name || '').trim() || 'My Workout';
       const date = ui.planDraft.date || todayKey();
@@ -1126,6 +1190,23 @@ document.addEventListener('click', (ev) => {
       break;
     }
     case 'new-ex-form': openNewExForm(); break;
+    case 'rename-ex': openRename(btn.dataset.ex); break;
+    case 'rename-save': {
+      const name = $('#rename-name').value.trim();
+      if (!name) { toast('Give it a name first 💗'); break; }
+      applyRename(ui.renameTarget, name);
+      toast(`Renamed to "${name}" ✦`);
+      if (ui.pickCtx) openSheet(pickerHTML()); else closeSheet();
+      render();
+      break;
+    }
+    case 'rename-reset': {
+      applyRename(ui.renameTarget, baseNameOf(ui.renameTarget));
+      toast('Name reset ✦');
+      if (ui.pickCtx) openSheet(pickerHTML()); else closeSheet();
+      render();
+      break;
+    }
     case 'nex-mus': $$('#nex-mus button').forEach(b => b.classList.toggle('sel', b === btn)); break;
     case 'nex-eq': $$('#nex-eq button').forEach(b => b.classList.toggle('sel', b === btn)); break;
     case 'nex-save': {

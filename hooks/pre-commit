@@ -1,0 +1,7 @@
+#!/bin/sh
+# Auto-bump the service-worker cache name on every commit so installed
+# apps pick up each release (no need to remember to do it by hand).
+# Enabled via: git config core.hooksPath hooks
+n=$(($(git rev-list --count HEAD 2>/dev/null || echo 0) + 1))
+sed -i '' -E "s/const CACHE = 'form-[^']*';/const CACHE = 'form-r$n';/" sw.js
+git add sw.js

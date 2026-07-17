@@ -74,9 +74,13 @@ HTTPS is required for the service worker (offline mode) and Add-to-Home-Screen.
 
 ## Shipping updates
 
-Edit files, redeploy, and **bump the `CACHE` name in `sw.js`** (`form-v1` → `form-v2` …).
-Installed apps pick up changes on the second launch after a deploy (standard
-stale-while-revalidate behavior).
+Just commit and push — a **pre-commit hook** (`hooks/pre-commit`) automatically rewrites the
+`CACHE` name in `sw.js` on every commit, so installed apps always pick up changes on the
+second launch after a deploy (standard stale-while-revalidate behavior).
+
+The hook is enabled via `git config core.hooksPath hooks` (already set in this clone).
+If you ever re-clone the repo, run that command once. The hook uses macOS `sed -i ''`;
+on Linux change it to `sed -i`.
 
 ## Data safety
 
