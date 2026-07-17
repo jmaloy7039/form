@@ -1289,5 +1289,19 @@ document.addEventListener('pointerdown', (ev) => {
 if (S.active) ui.tab = 'lift';
 render();
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  // updateViaCache:'none' — never let the HTTP cache delay update checks
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+    reg.update();
+    // iOS keeps installed PWAs resident: re-check whenever the app comes back to the foreground
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+  }).catch(() => {});
+  // when a new version takes over, reload once so she's on it immediately
+  let hadController = !!navigator.serviceWorker.controller;
+  let reloadedForUpdate = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) { hadController = true; return; } // first claim after a fresh install — no reload
+    if (reloadedForUpdate) return;
+    reloadedForUpdate = true;
+    location.reload();
+  });
 }

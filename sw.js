@@ -1,5 +1,5 @@
 /* Form — offline-first service worker */
-const CACHE = 'form-r3';
+const CACHE = 'form-r4';
 const ASSETS = [
   './',
   './index.html',
@@ -15,7 +15,12 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  // cache:'reload' — precache straight from the network, never from a stale HTTP cache
+  e.waitUntil(
+    caches.open(CACHE)
+      .then((c) => c.addAll(ASSETS.map((u) => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (e) => {
