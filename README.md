@@ -3,6 +3,9 @@
 A sparkly, seriously fast lifting log — built as an installable PWA for logging sets in under
 five seconds between sets, with rule-based coaching on top.
 
+**Live app:** https://jmaloy7039.github.io/form/ (open on the phone → Share → Add to Home Screen)
+**Repo:** https://github.com/jmaloy7039/form
+
 Design: "Powder & Punch" — hot pink `#FF2E93` + purple `#C79BFF` on white/blush, Fredoka + Nunito.
 
 ## What it does
