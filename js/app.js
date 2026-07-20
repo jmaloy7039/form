@@ -641,9 +641,10 @@ function renderSettings() {
     <div class="sgroup">
       <button class="srow srow-btn" data-action="export"><span>Export backup<span class="hint">Saves a file with your whole history</span></span><span class="chev">›</span></button>
       <button class="srow srow-btn" data-action="import"><span>Restore from backup</span><span class="chev">›</span></button>
+      <button class="srow srow-btn" data-action="reset-all"><span style="color:var(--purple-text)">Start fresh<span class="hint">Erase all data on this device</span></span><span class="chev">›</span></button>
     </div>
     <input type="file" id="import-file" accept=".json,application/json" style="display:none">
-    <div class="version">Form 1.2 · made with 💗 by your brother</div>`;
+    <div class="version">Form 1.2.1 · made with 💗 by your brother</div>`;
 }
 
 function renderTemplates() {
@@ -1258,6 +1259,18 @@ document.addEventListener('click', (ev) => {
       save(); render();
       break;
     }
+    case 'reset-all':
+      openSheet(`
+        <div class="grabber"></div>
+        <h2>Start completely fresh?</h2>
+        <p class="sub">This erases every workout, plan, template, and setting stored on this device. If any of it is worth keeping, export a backup first.</p>
+        <button class="btn-primary" data-action="reset-all-confirm">Erase everything</button>
+        <button class="btn-ghost" data-action="sheet-close">Cancel</button>`);
+      break;
+    case 'reset-all-confirm':
+      localStorage.removeItem(STORE_KEY);
+      location.reload();
+      break;
     case 'export': exportBackup(); break;
     case 'import': $('#import-file').click(); break;
     case 'import-confirm':
